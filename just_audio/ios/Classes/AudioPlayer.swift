@@ -9,8 +9,23 @@ import Foundation
 import Flutter
 import AVFoundation
 
-class AudioPlayer {
-    private weak var registrar: (NSObjectProtocol & FlutterPluginRegistrar)?
+class AudioPlayer: NSObject {
+    enum ProcessingState : Int {
+        case none
+        case loading
+        case buffering
+        case ready
+        case completed
+    }
+
+
+    enum LoopMode : Int {
+        case loopOff
+        case loopOne
+        case loopAll
+    }
+    
+    private weak var registrar: FlutterPluginRegistrar?
     private var methodChannel: FlutterMethodChannel
     private var eventChannel: FlutterEventChannel
     private var eventSink: FlutterEventSink?
@@ -43,6 +58,20 @@ class AudioPlayer {
     
     init(registrar: FlutterPluginRegistrar, id: String) {
         self.registrar = registrar
+        self.playerId = id
+        methodChannel = FlutterMethodChannel(
+            name: "com.ryanheise.just_audio.methods.\(id)",
+            binaryMessenger: registrar.messenger())
+        eventChannel = FlutterEventChannel(
+            name: "com.ryanheise.just_audio.events.\(id)",
+            binaryMessenger: registrar.messenger())
+        super.init()
+        methodChannel.setMethodCallHandler({ [weak self] call, result in
+            self?.handle(call, result: result)
+        })
+        //eventChannel.setStreamHandler( self)
+    }
+    func handle(_ call: FlutterMethodCall, result: FlutterResult) {
     }
     func dispose() {
         
