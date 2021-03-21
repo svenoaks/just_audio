@@ -12,6 +12,7 @@ GeneratedPluginRegistrant.m
 GeneratedPluginRegistrant.java
 GeneratedPluginRegistrant.swift
 build/
+.DS_Store
 .flutter-plugins
 coverage
 pubspec.lock
