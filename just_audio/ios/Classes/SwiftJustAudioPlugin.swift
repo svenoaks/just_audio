@@ -1,14 +1,7 @@
-//
-//  JustAudioPlugin.swift
-//  just_audio
-//
-//  Created by Steve Myers on 3/21/21.
-//
-
-import Foundation
 import Flutter
+import UIKit
 
-class JustAudioPlugin: NSObject, FlutterPlugin {
+public class SwiftJustAudioPlugin: NSObject, FlutterPlugin {
     private weak var registrar: FlutterPluginRegistrar?
     private var players: [String : AudioPlayer] = [:]
     
@@ -16,16 +9,16 @@ class JustAudioPlugin: NSObject, FlutterPlugin {
         self.registrar = registrar
         super.init()
     }
-    class func register(with registrar: FlutterPluginRegistrar) {
+    public class func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(
             name: "com.ryanheise.just_audio.methods",
             binaryMessenger: registrar.messenger())
         
-        let instance = JustAudioPlugin(registrar: registrar)
+        let instance = SwiftJustAudioPlugin(registrar: registrar)
         registrar.addMethodCallDelegate(instance, channel: channel)
     }
     
-    func handle(_ call: FlutterMethodCall, result: FlutterResult) {
+    public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         if "init" == call.method {
             let request = call.arguments as! Dictionary<String, String>
             let playerId = request["id"]
