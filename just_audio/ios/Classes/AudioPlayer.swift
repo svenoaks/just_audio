@@ -31,6 +31,7 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
     private let eventChannel: FlutterEventChannel
     private var eventSink: FlutterEventSink?
     private let playerId: String
+    private let player: AudioEnginePlayer
     //private var player: AVQueuePlayer?
     //private var audioSource: AudioSource?
     //private var indexedAudioSources: [IndexedAudioSource]?
@@ -41,7 +42,7 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
     //private var loopMode: LoopMode!
     private var shuffleModeEnabled = false
     private var updateTime: Int64 = 0
-    private var updatePosition: Int64 = 0
+    private var updatePos: Int64 = 0
     private var lastPosition: Int64 = 0
     private var bufferedPosition: Int64 = 0
     
@@ -66,6 +67,7 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
         eventChannel = FlutterEventChannel(
             name: "com.ryanheise.just_audio.events.\(id)",
             binaryMessenger: registrar.messenger())
+        player = AudioEnginePlayer()
         super.init()
         methodChannel.setMethodCallHandler({ [weak self] call, result in
             self?.handle(call, result: result)
@@ -87,9 +89,19 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
     
     func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         do {
+            let request = call.arguments as! [AnyHashable : Any]
             switch (call.method) {
+            case "load":
+                let ip: Int64 = request["initialPosition"] as? Int64 ?? 0
+                let initialIndex: Int = request["initialIndex"] as? Int ?? 0
+                let audioSource = request["audioSource"] as! [String: String]
+                let initialPosition: CMTime = CMTimeMake(value: ip, timescale: 1000000)
+                load(audioSource: audioSource, initialPosition: initialPosition, initialIndex: initialIndex, result: result)
             case "play":
                 play(result)
+            case "pause":
+                pause()
+                result([:])
             default:
                 result(FlutterMethodNotImplemented);
             }
@@ -100,11 +112,42 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
         }
     }
     
+    func load(audioSource: [String: String], initialPosition: CMTime, initialIndex: Int, result: FlutterResult) {
+        
+    }
+    
+    func pause() {
+        if !playing {
+            return
+        }
+        playing = false
+        //player.pause()
+        updatePosition()
+        broadcastPlaybackEvent()
+        if let pr = playResult {
+            //NSLog(@"PLAY FINISHED DUE TO PAUSE");
+            pr([:])
+            playResult = nil
+        }
+    }
+    
     func play() {
         play(nil)
     }
     
     func play(_ result: FlutterResult?) {
+        if (playing) {
+            result?([:])
+            return
+        }
+        if let res = result {
+            playResult?([:])
+            playResult = res
+        }
+        playing = true
+        //player.play()
+        //TODO player.rate = speed
+        updatePosition()
         
     }
     
@@ -114,7 +157,7 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
         }
         let event : [String : Any] = [
             "processingState": processingState.rawValue,
-            "updatePosition": 1000 * updatePosition,
+            "updatePosition": 1000 * updatePos,
             "updateTime": updateTime,
             "bufferedPosition": 1000 * getBufferedPosition(),
             "icyMetadata": icyMetadata,
@@ -155,9 +198,30 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
         return Int64(duration < 0 ? -1 : Int64(1000) * duration)
     }
     
+    func updatePosition() {
+        updatePos = getCurrentPosition()
+        updateTime = Int64(Date().timeIntervalSince1970 * 1000.0)
+    }
     func hasSources() -> Bool {
         //return indexedAudioSources && indexedAudioSources.count > 0
         return true
+    }
+    
+    func getCurrentPosition() -> Int64 {
+        return 0
+        /*if processingState == ProcessingState.none || processingState == ProcessingState.loading {
+            return Int(1000 * CMTimeGetSeconds(initialPos))
+        } else if CMTIME_IS_VALID(seekPos) {
+            return Int(1000 * CMTimeGetSeconds(seekPos))
+        } else if hasSources() {
+            var ms = Int(1000 * CMTimeGetSeconds(indexedAudioSources[index].position))
+            if ms < 0 {
+                ms = 0
+            }
+            return ms
+        } else {
+            return 0
+        }*/
     }
     func dispose() {
         
