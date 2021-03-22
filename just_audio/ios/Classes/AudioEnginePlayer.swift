@@ -21,17 +21,24 @@ class AudioEnginePlayer {
         NSLog("HEY MAN")
         engine.attach(audioPlayer)
         engine.attach(tempoControl)
-
+        
         engine.connect(audioPlayer, to: tempoControl, format: nil)
         engine.connect(tempoControl, to: engine.mainMixerNode, format: nil)
         
         let songs = MPMediaQuery.songs()
-        guard let song = songs.items?[0].assetURL else {
+        let song = songs.items?[0]
+        let filtered = songs.items?.first(where: { (item: MPMediaItem) -> Bool in
+            item.assetURL != nil
+        })
+        let title = filtered?.title ?? "no title"
+        NSLog(title)
+        guard let songUrl = filtered?.assetURL else {
             return
         }
         
         do {
-            try load(url: song)
+            tempoControl.rate = 0.25
+            try load(url: songUrl)
             try play()
         } catch {
             print("bleh")
@@ -46,11 +53,11 @@ class AudioEnginePlayer {
     }
     
     func load(urlString: String) throws {
-
+        
         /*let file = try AVAudioFile(forReading: url)
-        let audioPlayer = AVAudioPlayerNode()
-        audioPlayer.scheduleFile(file, at: nil)*/
-
+         let audioPlayer = AVAudioPlayerNode()
+         audioPlayer.scheduleFile(file, at: nil)*/
+        
     }
     
     func load (url: URL) throws {
@@ -60,7 +67,7 @@ class AudioEnginePlayer {
     }
     
     func play() throws {
-       
+        
         try engine.start()
         audioPlayer.play()
     }
