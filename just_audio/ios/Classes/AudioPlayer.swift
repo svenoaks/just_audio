@@ -9,7 +9,8 @@ import Foundation
 import Flutter
 import AVFoundation
 
-class AudioPlayer: NSObject {
+class AudioPlayer: NSObject, FlutterStreamHandler {
+    
     enum ProcessingState : Int {
         case none
         case loading
@@ -17,8 +18,8 @@ class AudioPlayer: NSObject {
         case ready
         case completed
     }
-
-
+    
+    
     enum LoopMode : Int {
         case loopOff
         case loopOne
@@ -26,11 +27,11 @@ class AudioPlayer: NSObject {
     }
     
     private weak var registrar: FlutterPluginRegistrar?
-    private var methodChannel: FlutterMethodChannel
-    private var eventChannel: FlutterEventChannel
+    private let methodChannel: FlutterMethodChannel
+    private let eventChannel: FlutterEventChannel
     private var eventSink: FlutterEventSink?
-    private var playerId: String
-    private var player: AVQueuePlayer?
+    private let playerId: String
+    //private var player: AVQueuePlayer?
     //private var audioSource: AudioSource?
     //private var indexedAudioSources: [IndexedAudioSource]?
     private var order: [NSNumber]?
@@ -40,9 +41,9 @@ class AudioPlayer: NSObject {
     //private var loopMode: LoopMode!
     private var shuffleModeEnabled = false
     private var updateTime: Int64 = 0
-    private var updatePosition = 0
-    private var lastPosition = 0
-    private var bufferedPosition = 0
+    private var updatePosition: Int64 = 0
+    private var lastPosition: Int64 = 0
+    private var bufferedPosition: Int64 = 0
     
     private var bufferUnconfirmed = false
     private var seekPos: CMTime!
@@ -54,7 +55,7 @@ class AudioPlayer: NSObject {
     private var playing = false
     private var speed: Float = 0.0
     private var justAdvanced = false
-    private var icyMetadata: [String : NSObject]?
+    private var icyMetadata: [String : NSObject] = [:]
     
     init(registrar: FlutterPluginRegistrar, id: String) {
         self.registrar = registrar
@@ -69,9 +70,94 @@ class AudioPlayer: NSObject {
         methodChannel.setMethodCallHandler({ [weak self] call, result in
             self?.handle(call, result: result)
         })
-        //eventChannel.setStreamHandler( self)
+        
+        eventChannel.setStreamHandler(self)
     }
-    func handle(_ call: FlutterMethodCall, result: FlutterResult) {
+    
+    func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+        self.eventSink = events
+        return nil
+    }
+    
+    func onCancel(withArguments arguments: Any?) -> FlutterError? {
+        self.eventSink = nil
+        return nil
+    }
+    var a = 0
+    
+    func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+        do {
+            switch (call.method) {
+            case "play":
+                play(result)
+            default:
+                result(FlutterMethodNotImplemented);
+            }
+            
+        } catch {
+            let flutterError = FlutterError(code: "error", message: "Error in handleMethodCall", details: nil)
+            result(flutterError)
+        }
+    }
+    
+    func play() {
+        play(nil)
+    }
+    
+    func play(_ result: FlutterResult?) {
+        
+    }
+    
+    func broadcastPlaybackEvent() {
+        guard let sink = self.eventSink else {
+            return
+        }
+        let event : [String : Any] = [
+            "processingState": processingState.rawValue,
+            "updatePosition": 1000 * updatePosition,
+            "updateTime": updateTime,
+            "bufferedPosition": 1000 * getBufferedPosition(),
+            "icyMetadata": icyMetadata,
+            "duration": getDurationMicroseconds(),
+            "currentIndex": index
+        ]
+        sink(event)
+    }
+    func getBufferedPosition() -> Int64 {
+        return 0
+        /*if processingState == ProcessingState.none || processingState == ProcessingState.loading {
+            return 0
+        } else if hasSources() {
+            var ms = Int(1000 * CMTimeGetSeconds(indexedAudioSources[index].bufferedPosition))
+            if ms < 0 {
+                ms = 0
+            }
+            return ms
+        } else {
+            return 0
+        }*/
+    }
+    
+    func getDuration() -> Int64 {
+        return 0
+        /*if processingState == none || processingState == loading {
+            return -1
+        } else if indexedAudioSources && indexedAudioSources.count > 0 {
+            let v = Int(1000 * CMTimeGetSeconds(indexedAudioSources[index].duration))
+            return v
+        } else {
+            return 0
+        }*/
+    }
+    
+    func getDurationMicroseconds() -> Int64 {
+        let duration = getDuration()
+        return Int64(duration < 0 ? -1 : Int64(1000) * duration)
+    }
+    
+    func hasSources() -> Bool {
+        //return indexedAudioSources && indexedAudioSources.count > 0
+        return true
     }
     func dispose() {
         
