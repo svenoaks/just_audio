@@ -45,7 +45,6 @@ class AudioEnginePlayer {
     }
     
     init() {
-        AVAudioPlayerNodeCompletionCallbackType
         engine.attach(audioPlayer)
         engine.attach(tempoControl)
                 
