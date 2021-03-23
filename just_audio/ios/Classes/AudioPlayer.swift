@@ -92,15 +92,44 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
             let request = call.arguments as! [AnyHashable : Any]
             switch (call.method) {
             case "load":
+                NSLog("load called")
                 let ip: Int64 = request["initialPosition"] as? Int64 ?? 0
                 let initialIndex: Int = request["initialIndex"] as? Int ?? 0
-                let audioSource = request["audioSource"] as! [String: String]
+                let audioSource = (request["audioSource"] as! [String: Any])["id"]
                 let initialPosition: CMTime = CMTimeMake(value: ip, timescale: 1000000)
-                load(audioSource: audioSource, initialPosition: initialPosition, initialIndex: initialIndex, result: result)
+                if let aSource = audioSource as? String {
+                    load(audioSource: aSource, initialPosition: initialPosition, initialIndex: initialIndex, result: result)
+                }
             case "play":
+                NSLog("play called")
                 play(result)
             case "pause":
+                NSLog("paused called")
                 pause()
+                result([:])
+            case "setVolume":
+                NSLog("setVolume called")
+                result([:])
+            case "setSpeed":
+                result([:])
+            case "setLoopMode":
+                result([:])
+            case "setShuffleMode":
+                result([:])
+            case "automaticallyWaitsToMinimizeStalling":
+                result([:])
+            case "seek":
+                let ip = request["position"] as? Int64
+                let position = ip == nil ? CMTime.positiveInfinity : CMTimeMake(value: ip!, timescale: 1000000)
+                seek(position)
+                result([:])
+            case "concatenatingInsertAll":
+                result([:])
+            case "concatenatingRemoveRange":
+                result([:])
+            case "concatenatingMove":
+                result([:])
+            case "setAndroidAudioAttributes":
                 result([:])
             default:
                 result(FlutterMethodNotImplemented);
@@ -112,8 +141,29 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
         }
     }
     
-    func load(audioSource: [String: String], initialPosition: CMTime, initialIndex: Int, result: FlutterResult) {
+    func seek(_ pos: CMTime) {
+        if processingState == ProcessingState.none || processingState == ProcessingState.loading {
+            return
+        }
+        player.seek(pos)
         
+    }
+    
+    func load(audioSource: String, initialPosition: CMTime, initialIndex: Int, result: @escaping FlutterResult) {
+        NSLog("load internal called")
+        loadResult = result
+        processingState = ProcessingState.loading
+        do {
+            let durationMs = try player.load(audioSource)
+            let durationUs = durationMs * 1000
+            NSLog("duration: \(durationUs)")
+            processingState = ProcessingState.ready
+            result(["duration": durationUs])
+        } catch {
+            processingState = ProcessingState.none
+            result(["duration": -1])
+        }
+        loadResult = nil
     }
     
     func pause() {
@@ -121,7 +171,7 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
             return
         }
         playing = false
-        //player.pause()
+        player.pause()
         updatePosition()
         broadcastPlaybackEvent()
         if let pr = playResult {
@@ -145,7 +195,11 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
             playResult = res
         }
         playing = true
-        //player.play()
+        do {
+            try player.play()
+        } catch {
+            //TODO handle
+        }
         //TODO player.rate = speed
         updatePosition()
         
@@ -182,7 +236,7 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
     }
     
     func getDuration() -> Int64 {
-        return 0
+        return player.duration
         /*if processingState == none || processingState == loading {
             return -1
         } else if indexedAudioSources && indexedAudioSources.count > 0 {
@@ -195,7 +249,7 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
     
     func getDurationMicroseconds() -> Int64 {
         let duration = getDuration()
-        return Int64(duration < 0 ? -1 : Int64(1000) * duration)
+        return Int64(duration < 0 ? -1 : 1000 * duration)
     }
     
     func updatePosition() {
