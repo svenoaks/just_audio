@@ -9,7 +9,18 @@ import Foundation
 import Flutter
 import AVFoundation
 
-class AudioPlayer: NSObject, FlutterStreamHandler {
+class AudioPlayer: NSObject, FlutterStreamHandler, AudioEngineListener {
+    
+    func onTrackComplete() {
+        NSLog(player.isPlaying.description)
+        if (player.repeatMode == LoopMode.loopOff) {
+            processingState = ProcessingState.completed
+        }
+        updatePosition()
+        broadcastPlaybackEvent()
+        processingState = ProcessingState.ready
+    }
+    
     
     enum ProcessingState : Int {
         case none
@@ -32,31 +43,14 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
     private var eventSink: FlutterEventSink?
     private let playerId: String
     private let player: AudioEnginePlayer
-    //private var player: AVQueuePlayer?
-    //private var audioSource: AudioSource?
-    //private var indexedAudioSources: [IndexedAudioSource]?
-    private var order: [NSNumber]?
-    private var orderInv: [NSNumber]?
-    private var index = 0
-    private var processingState: ProcessingState!
-    //private var loopMode: LoopMode!
-    private var shuffleModeEnabled = false
+
+    private var processingState = ProcessingState.none
+
     private var updateTime: Int64 = 0
     private var updatePos: Int64 = 0
-    private var lastPosition: Int64 = 0
-    private var bufferedPosition: Int64 = 0
-    
-    private var bufferUnconfirmed = false
-    private var seekPos: CMTime!
-    private var initialPos: CMTime!
+ 
     private var loadResult: FlutterResult?
     private var playResult: FlutterResult?
-    private var timeObserver: Any?
-    private var automaticallyWaitsToMinimizeStalling = false
-    private var playing = false
-    private var speed: Float = 0.0
-    private var justAdvanced = false
-    private var icyMetadata: [String : NSObject] = [:]
     
     init(registrar: FlutterPluginRegistrar, id: String) {
         self.registrar = registrar
@@ -69,6 +63,7 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
             binaryMessenger: registrar.messenger())
         player = AudioEnginePlayer()
         super.init()
+        player.listener = self
         methodChannel.setMethodCallHandler({ [weak self] call, result in
             self?.handle(call, result: result)
         })
@@ -85,7 +80,6 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
         self.eventSink = nil
         return nil
     }
-    var a = 0
     
     func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         do {
@@ -102,7 +96,8 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
                 }
             case "play":
                 NSLog("play called")
-                play(result)
+                play()
+                result([:])
             case "pause":
                 NSLog("paused called")
                 pause()
@@ -111,8 +106,12 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
                 NSLog("setVolume called")
                 result([:])
             case "setSpeed":
+                let speed = request["speed"] as! Double
+                setSpeed(speed)
                 result([:])
             case "setLoopMode":
+                let loopMode: LoopMode = LoopMode(rawValue: request["loopMode"] as! Int)!
+                setRepeatMode(loopMode)
                 result([:])
             case "setShuffleMode":
                 result([:])
@@ -141,20 +140,28 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
         }
     }
     
+    func setRepeatMode(_ repeatMode: LoopMode) {
+        player.repeatMode = repeatMode
+    }
+    
+    func setSpeed(_ speed: Double) {
+        player.setSpeed(speed)
+    }
+    
     func seek(_ pos: CMTime) {
         if processingState == ProcessingState.none || processingState == ProcessingState.loading {
             return
         }
         player.seek(pos)
-        
+        updatePosition()
+        broadcastPlaybackEvent()
     }
     
     func load(audioSource: String, initialPosition: CMTime, initialIndex: Int, result: @escaping FlutterResult) {
         NSLog("load internal called")
-        loadResult = result
         processingState = ProcessingState.loading
         do {
-            let durationMs = try player.load(audioSource)
+            let durationMs = try player.load(audioSource, initialPosition)
             let durationUs = durationMs * 1000
             NSLog("duration: \(durationUs)")
             processingState = ProcessingState.ready
@@ -163,16 +170,17 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
             processingState = ProcessingState.none
             result(["duration": -1])
         }
-        loadResult = nil
+        updatePosition()
+        broadcastPlaybackEvent()
     }
     
     func pause() {
+        let playing = player.isPlaying
         if !playing {
             return
         }
-        playing = false
-        player.pause()
         updatePosition()
+        player.pause()
         broadcastPlaybackEvent()
         if let pr = playResult {
             //NSLog(@"PLAY FINISHED DUE TO PAUSE");
@@ -182,24 +190,10 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
     }
     
     func play() {
-        play(nil)
-    }
-    
-    func play(_ result: FlutterResult?) {
-        if (playing) {
-            result?([:])
+        if (player.isPlaying) {
             return
         }
-        if let res = result {
-            playResult?([:])
-            playResult = res
-        }
-        playing = true
-        do {
-            try player.play()
-        } catch {
-            //TODO handle
-        }
+        player.play()
         //TODO player.rate = speed
         updatePosition()
         
@@ -213,38 +207,16 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
             "processingState": processingState.rawValue,
             "updatePosition": 1000 * updatePos,
             "updateTime": updateTime,
-            "bufferedPosition": 1000 * getBufferedPosition(),
-            "icyMetadata": icyMetadata,
+            "bufferedPosition": 1000 * updatePos,
+            "icyMetadata": [:],
             "duration": getDurationMicroseconds(),
-            "currentIndex": index
+            "currentIndex": 0
         ]
         sink(event)
     }
-    func getBufferedPosition() -> Int64 {
-        return 0
-        /*if processingState == ProcessingState.none || processingState == ProcessingState.loading {
-            return 0
-        } else if hasSources() {
-            var ms = Int(1000 * CMTimeGetSeconds(indexedAudioSources[index].bufferedPosition))
-            if ms < 0 {
-                ms = 0
-            }
-            return ms
-        } else {
-            return 0
-        }*/
-    }
-    
+   
     func getDuration() -> Int64 {
         return player.duration
-        /*if processingState == none || processingState == loading {
-            return -1
-        } else if indexedAudioSources && indexedAudioSources.count > 0 {
-            let v = Int(1000 * CMTimeGetSeconds(indexedAudioSources[index].duration))
-            return v
-        } else {
-            return 0
-        }*/
     }
     
     func getDurationMicroseconds() -> Int64 {
@@ -256,26 +228,9 @@ class AudioPlayer: NSObject, FlutterStreamHandler {
         updatePos = getCurrentPosition()
         updateTime = Int64(Date().timeIntervalSince1970 * 1000.0)
     }
-    func hasSources() -> Bool {
-        //return indexedAudioSources && indexedAudioSources.count > 0
-        return true
-    }
     
     func getCurrentPosition() -> Int64 {
-        return 0
-        /*if processingState == ProcessingState.none || processingState == ProcessingState.loading {
-            return Int(1000 * CMTimeGetSeconds(initialPos))
-        } else if CMTIME_IS_VALID(seekPos) {
-            return Int(1000 * CMTimeGetSeconds(seekPos))
-        } else if hasSources() {
-            var ms = Int(1000 * CMTimeGetSeconds(indexedAudioSources[index].position))
-            if ms < 0 {
-                ms = 0
-            }
-            return ms
-        } else {
-            return 0
-        }*/
+        return player.currentPosition
     }
     func dispose() {
         

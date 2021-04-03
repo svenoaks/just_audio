@@ -10,7 +10,7 @@ import AVFoundation
 import MediaPlayer
 
 extension AVAudioFile {
-
+    
     var duration: Int64 {
         let sampleRateSong = Double(processingFormat.sampleRate)
         let lengthSongSeconds = Double(length) / sampleRateSong
@@ -19,35 +19,53 @@ extension AVAudioFile {
 }
 
 extension AVAudioPlayerNode {
-
+    
     var currentPosition: Int64 {
-        if let nodeTime = lastRenderTime,let playerTime = playerTime(forNodeTime: nodeTime) {
-            return Int64((Double(playerTime.sampleTime) / playerTime.sampleRate) * 1000)
+        if let nodeTime = lastRenderTime, let playerTime = playerTime(forNodeTime: nodeTime) {
+            let pos = Int64(((Double(playerTime.sampleTime) / playerTime.sampleRate)) * 1000)
+            NSLog("pos: \(pos)")
+            return pos > 0 ? pos : 0
         }
+        NSLog("returning 0")
         return 0
     }
 }
 
+protocol AudioEngineListener: class {
+    func onTrackComplete()
+}
+
 class AudioEnginePlayer {
+    let test = true
     
     let engine = AVAudioEngine()
     let tempoControl = AVAudioUnitTimePitch()
     let audioPlayer = AVAudioPlayerNode()
     
     var audioFile: AVAudioFile?
+    var repeatMode = AudioPlayer.LoopMode.loopOff
     
     var duration: Int64 {
         audioFile?.duration ?? -1
     }
     
     var currentPosition: Int64 {
-        audioPlayer.currentPosition
+        audioPlayer.currentPosition + seekPosition
     }
+    
+    var isPlaying: Bool {
+        audioPlayer.isPlaying
+    }
+    
+    var seekPosition: Int64 = 0
+    var seeking = false
+    
+    weak var listener: AudioEngineListener?
     
     init() {
         engine.attach(audioPlayer)
         engine.attach(tempoControl)
-                
+        
         engine.connect(audioPlayer, to: tempoControl, format: nil)
         engine.connect(tempoControl, to: engine.mainMixerNode, format: nil)
     }
@@ -67,37 +85,79 @@ class AudioEnginePlayer {
         engine.stop()
     }
     
-    func load(_ urlString: String) throws -> Int64 {
-        guard let songUrl = testURL() else {
-            return -1
-        }
-        try engine.start()
-        return try load(url: songUrl)
-        
-        return try load(url: URL(fileURLWithPath: urlString))
+    func setSpeed(_ speed: Double) {
+        tempoControl.rate = Float(speed)
     }
     
-    func seek(_ pos: CMTime) { //Microseconds
+    
+    func stopAndScheduleSegment(startTimeUs: CMTime) {
         guard let file = audioFile else { return }
+        let wasPlaying = audioPlayer.isPlaying
         audioPlayer.stop()
-        let startInSongSeconds = Double(pos.value) / 1000000.0 // example
+        let startInSongSeconds = startTimeUs.seconds
         let startSample = UInt32(floor(startInSongSeconds * file.processingFormat.sampleRate))
         let lengthSamples: UInt32 = UInt32(file.length) - startSample
         
-
-        audioPlayer.scheduleSegment(file, startingFrame: AVAudioFramePosition(startSample), frameCount: AVAudioFrameCount(lengthSamples), at: nil, completionHandler: {
-            // do something (pause player)
-        })
-        audioPlayer.play()
+        scheduleSegment(startSample: startSample, lengthSamples: lengthSamples, completionType: AVAudioPlayerNodeCompletionCallbackType.dataConsumed)
+        
+        seekPosition = startTimeUs.value / 1000
+        if (wasPlaying) {
+            audioPlayer.play()
+        }
     }
     
-    func load (url: URL) throws -> Int64 {
+    func scheduleSegment(startSample: UInt32, lengthSamples: UInt32, completionType: AVAudioPlayerNodeCompletionCallbackType) {
+        guard let file = audioFile else { return }
+        audioPlayer.scheduleSegment(file,
+                                    startingFrame: AVAudioFramePosition(startSample),
+                                    frameCount: AVAudioFrameCount(lengthSamples), at: nil,
+                                    completionCallbackType: completionType,
+                                    completionHandler: { [weak self] _ in
+                                        DispatchQueue.main.async {
+                                            if (!(self?.seeking ?? false)) {
+                                                NSLog("completion called")
+                                                if (self?.repeatMode == AudioPlayer.LoopMode.loopOne) {
+                                                    NSLog("loopOne")
+                                                    self?.stopAndScheduleSegment(startTimeUs: .zero)
+                                                } else if (self?.repeatMode == AudioPlayer.LoopMode.loopOff) {
+                                                
+                                                }
+                                                self?.listener?.onTrackComplete()
+                                            }
+                                            self?.seeking = false
+                                        }
+                                    })
+    }
+    
+    
+    func load(_ urlString: String, _ initialPosition: CMTime) throws -> Int64 {
+        try engine.start()
+        
+        if (test) {
+            guard let songUrl = testURL() else {
+                return -1
+            }
+            return try load(url: songUrl, initialPosition: initialPosition)
+            
+        } else {
+            return try load(url: URL(fileURLWithPath: urlString), initialPosition: initialPosition)
+        }
+    }
+    
+    func seek(_ pos: CMTime) { //Microseconds
+        seeking = true
+        stopAndScheduleSegment(startTimeUs: pos)
+    }
+    
+    
+    
+    func load (url: URL, initialPosition: CMTime) throws -> Int64 {
         audioFile = try AVAudioFile(forReading: url)
-        audioPlayer.scheduleFile(audioFile!, at: nil)
+        stopAndScheduleSegment(startTimeUs: .zero)
         return duration
     }
     
-    func play() throws {
+    func play() {
         audioPlayer.play()
     }
     
