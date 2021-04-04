@@ -44,6 +44,7 @@ class AudioEnginePlayer {
     
     var audioFile: AVAudioFile?
     var repeatMode = AudioPlayer.LoopMode.loopOff
+    var shuffleMode = false
     
     var duration: Int64 {
         audioFile?.duration ?? -1
@@ -113,18 +114,23 @@ class AudioEnginePlayer {
                                     frameCount: AVAudioFrameCount(lengthSamples), at: nil,
                                     completionCallbackType: completionType,
                                     completionHandler: { [weak self] _ in
+                                        guard let sel = self else { return; }
                                         DispatchQueue.main.async {
-                                            if (!(self?.seeking ?? false)) {
+                                            if (!(sel.seeking)) {
                                                 NSLog("completion called")
-                                                if (self?.repeatMode == AudioPlayer.LoopMode.loopOne) {
-                                                    NSLog("loopOne")
-                                                    self?.stopAndScheduleSegment(startTimeUs: .zero)
-                                                } else if (self?.repeatMode == AudioPlayer.LoopMode.loopOff) {
-                                                
+                                                switch (sel.repeatMode) {
+                                                case AudioPlayer.LoopMode.loopOne:
+                                                    sel.stopAndScheduleSegment(startTimeUs: .zero)
+                                                case AudioPlayer.LoopMode.loopOff:
+                                                    break;
+                                                case AudioPlayer.LoopMode.loopAll:
+                                                    sel.stopAndScheduleSegment(startTimeUs: .zero)
+                                                case AudioPlayer.LoopMode.loopStop:
+                                                    break;
                                                 }
-                                                self?.listener?.onTrackComplete()
+                                                sel.listener?.onTrackComplete()
                                             }
-                                            self?.seeking = false
+                                            sel.seeking = false
                                         }
                                     })
     }

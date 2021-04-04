@@ -13,7 +13,7 @@ class AudioPlayer: NSObject, FlutterStreamHandler, AudioEngineListener {
     
     func onTrackComplete() {
         NSLog(player.isPlaying.description)
-        if (player.repeatMode == LoopMode.loopOff) {
+        if (player.repeatMode == LoopMode.loopOff || player.repeatMode == LoopMode.loopStop) {
             processingState = ProcessingState.completed
         }
         updatePosition()
@@ -35,6 +35,7 @@ class AudioPlayer: NSObject, FlutterStreamHandler, AudioEngineListener {
         case loopOff
         case loopOne
         case loopAll
+        case loopStop
     }
     
     private weak var registrar: FlutterPluginRegistrar?
@@ -114,6 +115,7 @@ class AudioPlayer: NSObject, FlutterStreamHandler, AudioEngineListener {
                 setRepeatMode(loopMode)
                 result([:])
             case "setShuffleMode":
+                player.shuffleMode = request["shuffleMode"] as! Int == 1
                 result([:])
             case "automaticallyWaitsToMinimizeStalling":
                 result([:])

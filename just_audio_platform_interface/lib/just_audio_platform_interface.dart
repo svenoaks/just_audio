@@ -420,7 +420,7 @@ class SetLoopModeResponse {
 }
 
 /// The loop mode communicated to the platform implementation.
-enum LoopModeMessage { off, one, all }
+enum LoopModeMessage { off, one, all, stop }
 
 /// Information communicated to the platform implementation when setting the
 /// shuffle mode.

@@ -2527,7 +2527,7 @@ class DefaultShuffleOrder extends ShuffleOrder {
 }
 
 /// An enumeration of modes that can be passed to [AudioPlayer.setLoopMode].
-enum LoopMode { off, one, all }
+enum LoopMode { off, one, all, stop }
 
 /// The stand-in platform implementation to use when the player is in the idle
 /// state and the native platform is deallocated.
