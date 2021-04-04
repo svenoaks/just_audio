@@ -163,7 +163,7 @@ class AudioPlayer: NSObject, FlutterStreamHandler, AudioEngineListener {
         NSLog("load internal called")
         processingState = ProcessingState.loading
         do {
-            let durationMs = try player.load(audioSource, initialPosition)
+            let durationMs = try player.load(audioSource, initialPosition, registrar: registrar)
             let durationUs = durationMs * 1000
             NSLog("duration: \(durationUs)")
             processingState = ProcessingState.ready

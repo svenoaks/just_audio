@@ -82,9 +82,11 @@ class AudioEnginePlayer {
         return filtered?.assetURL
     }
     
-    func assetsURL() -> URL? {
-        let sound = Bundle.main.path(forResource: "do", ofType: "mp3")
-        return URL.init(fileURLWithPath: sound!)
+    func assetsURL(registrar: FlutterPluginRegistrar) -> URL? {
+        NSLog("assetsURL")
+        let key = registrar.lookupKey(forAsset: "assets/audio/out.mp3")
+        let path = Bundle.main.path(forResource: key, ofType: nil)
+        return URL(fileURLWithPath: path!)
     }
     
     
@@ -142,11 +144,11 @@ class AudioEnginePlayer {
     }
     
     
-    func load(_ urlString: String, _ initialPosition: CMTime) throws -> Int64 {
+    func load(_ urlString: String, _ initialPosition: CMTime, registrar: FlutterPluginRegistrar? = nil) throws -> Int64 {
         try engine.start()
         
         if (test) {
-            guard let songUrl = assetsURL() else {
+            guard let reg = registrar, let songUrl = assetsURL(registrar: reg) else {
                 return -1
             }
             return try load(url: songUrl, initialPosition: initialPosition)
