@@ -71,7 +71,7 @@ class AudioEnginePlayer {
         engine.connect(tempoControl, to: engine.mainMixerNode, format: nil)
     }
     
-    func testURL() -> URL? {
+    func firstLibraryURL() -> URL? {
         let songs = MPMediaQuery.songs()
         let song = songs.items?[0]
         let filtered = songs.items?.first(where: { (item: MPMediaItem) -> Bool in
@@ -81,6 +81,12 @@ class AudioEnginePlayer {
         NSLog(title)
         return filtered?.assetURL
     }
+    
+    func assetsURL() -> URL? {
+        let sound = Bundle.main.path(forResource: "do", ofType: "mp3")
+        return URL.init(fileURLWithPath: sound!)
+    }
+    
     
     deinit {
         engine.stop()
@@ -140,7 +146,7 @@ class AudioEnginePlayer {
         try engine.start()
         
         if (test) {
-            guard let songUrl = testURL() else {
+            guard let songUrl = assetsURL() else {
                 return -1
             }
             return try load(url: songUrl, initialPosition: initialPosition)
