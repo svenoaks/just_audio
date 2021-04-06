@@ -13,12 +13,11 @@ class AudioPlayer: NSObject, FlutterStreamHandler, AudioEngineListener {
     
     func onTrackComplete() {
         NSLog(player.isPlaying.description)
-        if (player.repeatMode == LoopMode.loopOff || player.repeatMode == LoopMode.loopStop) {
-            processingState = ProcessingState.completed
+        if (player.repeatMode == .loopOff || player.repeatMode == .loopStop) {
+            processingState = .completed
         }
         updatePosition()
         broadcastPlaybackEvent()
-        processingState = ProcessingState.ready
     }
     
     
@@ -108,11 +107,15 @@ class AudioPlayer: NSObject, FlutterStreamHandler, AudioEngineListener {
                 result([:])
             case "setSpeed":
                 let speed = request["speed"] as! Double
-                setSpeed(speed)
+                player.setSpeed(speed)
+                result([:])
+            case "setPitch":
+                let pitch = request["pitch"] as! Double
+                player.setPitch(pitch)
                 result([:])
             case "setLoopMode":
                 let loopMode: LoopMode = LoopMode(rawValue: request["loopMode"] as! Int)!
-                setRepeatMode(loopMode)
+                player.repeatMode = loopMode
                 result([:])
             case "setShuffleMode":
                 player.shuffleMode = request["shuffleMode"] as! Int == 1
@@ -142,17 +145,12 @@ class AudioPlayer: NSObject, FlutterStreamHandler, AudioEngineListener {
         }
     }
     
-    func setRepeatMode(_ repeatMode: LoopMode) {
-        player.repeatMode = repeatMode
-    }
-    
-    func setSpeed(_ speed: Double) {
-        player.setSpeed(speed)
-    }
-    
     func seek(_ pos: CMTime) {
-        if processingState == ProcessingState.none || processingState == ProcessingState.loading {
+        if processingState == .none || processingState == .loading {
             return
+        }
+        if processingState == .completed {
+            processingState = .ready
         }
         player.seek(pos)
         updatePosition()
@@ -196,7 +194,6 @@ class AudioPlayer: NSObject, FlutterStreamHandler, AudioEngineListener {
             return
         }
         player.play()
-        //TODO player.rate = speed
         updatePosition()
         
     }

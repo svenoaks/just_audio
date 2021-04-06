@@ -98,6 +98,10 @@ class AudioEnginePlayer {
         tempoControl.rate = Float(speed)
     }
     
+    func setPitch(_ pitch: Double) {
+        tempoControl.pitch = Float(pitch)
+    }
+    
     
     func stopAndScheduleSegment(startTimeUs: CMTime) {
         guard let file = audioFile else { return }
@@ -107,11 +111,36 @@ class AudioEnginePlayer {
         let startSample = UInt32(floor(startInSongSeconds * file.processingFormat.sampleRate))
         let lengthSamples: UInt32 = UInt32(file.length) - startSample
         
-        scheduleSegment(startSample: startSample, lengthSamples: lengthSamples, completionType: AVAudioPlayerNodeCompletionCallbackType.dataConsumed)
+        if lengthSamples > 0 {
+            scheduleSegment(startSample: startSample, lengthSamples: lengthSamples, completionType: .dataConsumed)
+        } else {
+            completionHandler(type: .dataConsumed)
+        }
         
         seekPosition = startTimeUs.value / 1000
         if (wasPlaying) {
             audioPlayer.play()
+        }
+        
+    }
+    
+    func completionHandler(type: AVAudioPlayerNodeCompletionCallbackType) {
+        DispatchQueue.main.async { [weak self] in
+            guard let sel = self else { return; }
+            if (!(sel.seeking)) {
+                switch (sel.repeatMode) {
+                case AudioPlayer.LoopMode.loopOne:
+                    sel.stopAndScheduleSegment(startTimeUs: .zero)
+                case AudioPlayer.LoopMode.loopOff:
+                    break;
+                case AudioPlayer.LoopMode.loopAll:
+                    sel.stopAndScheduleSegment(startTimeUs: .zero)
+                case AudioPlayer.LoopMode.loopStop:
+                    break;
+                }
+                sel.listener?.onTrackComplete()
+            }
+            sel.seeking = false
         }
     }
     
@@ -121,26 +150,8 @@ class AudioEnginePlayer {
                                     startingFrame: AVAudioFramePosition(startSample),
                                     frameCount: AVAudioFrameCount(lengthSamples), at: nil,
                                     completionCallbackType: completionType,
-                                    completionHandler: { [weak self] _ in
-                                        guard let sel = self else { return; }
-                                        DispatchQueue.main.async {
-                                            if (!(sel.seeking)) {
-                                                NSLog("completion called")
-                                                switch (sel.repeatMode) {
-                                                case AudioPlayer.LoopMode.loopOne:
-                                                    sel.stopAndScheduleSegment(startTimeUs: .zero)
-                                                case AudioPlayer.LoopMode.loopOff:
-                                                    break;
-                                                case AudioPlayer.LoopMode.loopAll:
-                                                    sel.stopAndScheduleSegment(startTimeUs: .zero)
-                                                case AudioPlayer.LoopMode.loopStop:
-                                                    break;
-                                                }
-                                                sel.listener?.onTrackComplete()
-                                            }
-                                            sel.seeking = false
-                                        }
-                                    })
+                                    completionHandler: completionHandler
+        )
     }
     
     

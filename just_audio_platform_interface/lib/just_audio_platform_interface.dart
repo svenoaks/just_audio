@@ -91,6 +91,10 @@ abstract class AudioPlayerPlatform {
     throw UnimplementedError("setSpeed() has not been implemented.");
   }
 
+  Future<SetPitchResponse> setPitch(SetPitchRequest request) {
+    throw UnimplementedError("setPitch() has not been implemented.");
+  }
+
   /// Sets the loop mode.
   Future<SetLoopModeResponse> setLoopMode(SetLoopModeRequest request) {
     throw UnimplementedError("setLoopMode() has not been implemented.");
@@ -393,11 +397,25 @@ class SetSpeedRequest {
       };
 }
 
+class SetPitchRequest {
+  final double pitch;
+
+  SetPitchRequest({required this.pitch});
+
+  Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
+    'pitch': pitch,
+  };
+}
+
 /// Information returned by the platform implementation after setting the
 /// speed.
 class SetSpeedResponse {
   static SetSpeedResponse fromMap(Map<dynamic, dynamic> map) =>
       SetSpeedResponse();
+}
+class SetPitchResponse {
+  static SetPitchResponse fromMap(Map<dynamic, dynamic> map) =>
+      SetPitchResponse();
 }
 
 /// Information communicated to the platform implementation when setting the

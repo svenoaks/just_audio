@@ -77,6 +77,7 @@ class AudioPlayer {
   final _playingSubject = BehaviorSubject.seeded(false);
   final _volumeSubject = BehaviorSubject.seeded(1.0);
   final _speedSubject = BehaviorSubject.seeded(1.0);
+  final _pitchSubject = BehaviorSubject.seeded(0.0);
   final _bufferedPositionSubject = BehaviorSubject<Duration>();
   final _icyMetadataSubject = BehaviorSubject<IcyMetadata?>();
   final _playerStateSubject = BehaviorSubject<PlayerState>();
@@ -291,8 +292,11 @@ class AudioPlayer {
   /// The current speed of the player.
   double get speed => _speedSubject.value!;
 
+  double get pitch => _pitchSubject.value!;
+
   /// A stream of current speed values.
   Stream<double> get speedStream => _speedSubject.stream;
+  Stream<double> get pitchStream => _pitchSubject.stream;
 
   /// The position up to which buffered audio is available.
   Duration get bufferedPosition =>
@@ -851,6 +855,17 @@ class AudioPlayer {
     await (await _platform).setSpeed(SetSpeedRequest(speed: speed));
   }
 
+  Future<void> setPitch(final double pitch) async {
+    if (_disposed) return;
+    _playbackEvent = _playbackEvent.copyWith(
+      updatePosition: position,
+      updateTime: DateTime.now(),
+    );
+    _playbackEventSubject.add(_playbackEvent);
+    _pitchSubject.add(pitch);
+    await (await _platform).setPitch(SetPitchRequest(pitch: pitch));
+  }
+
   /// Sets the [LoopMode]. Looping will be gapless on Android, iOS and macOS. On
   /// web, there will be a slight gap at the loop point.
   Future<void> setLoopMode(LoopMode mode) async {
@@ -971,6 +986,7 @@ class AudioPlayer {
     await _playingSubject.close();
     await _volumeSubject.close();
     await _speedSubject.close();
+    await _pitchSubject.close();
     await _sequenceSubject.close();
     await _shuffleIndicesSubject.close();
   }
@@ -1063,6 +1079,7 @@ class AudioPlayer {
         }
         await platform.setVolume(SetVolumeRequest(volume: volume));
         await platform.setSpeed(SetSpeedRequest(speed: speed));
+        await platform.setPitch(SetPitchRequest(pitch: pitch));
         await platform.setLoopMode(SetLoopModeRequest(
             loopMode: LoopModeMessage.values[loopMode.index]));
         await platform.setShuffleMode(SetShuffleModeRequest(
@@ -1194,6 +1211,7 @@ class PlaybackEvent {
     Duration? updatePosition,
     Duration? bufferedPosition,
     double? speed,
+    double? pitch,
     Duration? duration,
     IcyMetadata? icyMetadata,
     int? currentIndex,
@@ -2596,6 +2614,11 @@ class _IdleAudioPlayer extends AudioPlayerPlatform {
   @override
   Future<SetSpeedResponse> setSpeed(SetSpeedRequest request) async {
     return SetSpeedResponse();
+  }
+
+  @override
+  Future<SetPitchResponse> setPitch(SetPitchRequest request) async {
+    return SetPitchResponse();
   }
 
   @override

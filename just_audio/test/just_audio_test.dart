@@ -1216,6 +1216,12 @@ class MockAudioPlayer implements AudioPlayerPlatform {
     _updatePosition = position;
     _updateTime = DateTime.now();
   }
+
+  @override
+  Future<SetPitchResponse> setPitch(SetPitchRequest request) {
+    // TODO: implement setPitch
+    throw UnimplementedError();
+  }
 }
 
 final byteRangeData = List.generate(200, (i) => i);
