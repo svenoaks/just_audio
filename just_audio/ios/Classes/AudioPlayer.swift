@@ -113,6 +113,8 @@ class AudioPlayer: NSObject, FlutterStreamHandler, AudioEngineListener {
                 let pitch = request["pitch"] as! Double
                 player.setPitch(pitch)
                 result([:])
+            case "setABLoopPoints":
+                result([:])
             case "setLoopMode":
                 let loopMode: LoopMode = LoopMode(rawValue: request["loopMode"] as! Int)!
                 player.repeatMode = loopMode

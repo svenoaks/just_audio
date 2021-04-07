@@ -1002,6 +1002,7 @@ class AudioPlayer {
     await _volumeSubject.close();
     await _speedSubject.close();
     await _pitchSubject.close();
+    await _abLoopPointsSubject.close();
     await _sequenceSubject.close();
     await _shuffleIndicesSubject.close();
   }
@@ -1095,6 +1096,7 @@ class AudioPlayer {
         await platform.setVolume(SetVolumeRequest(volume: volume));
         await platform.setSpeed(SetSpeedRequest(speed: speed));
         await platform.setPitch(SetPitchRequest(pitch: pitch));
+        await platform.setABLoopPoints(SetABLoopPointsRequest(pointA: abLoopPoints.A, pointB: abLoopPoints.B));
         await platform.setLoopMode(SetLoopModeRequest(
             loopMode: LoopModeMessage.values[loopMode.index]));
         await platform.setShuffleMode(SetShuffleModeRequest(
@@ -2641,6 +2643,11 @@ class _IdleAudioPlayer extends AudioPlayerPlatform {
   @override
   Future<SetPitchResponse> setPitch(SetPitchRequest request) async {
     return SetPitchResponse();
+  }
+
+  @override
+  Future<SetABLoopPointsResponse> setABLoopPoints(SetABLoopPointsRequest request) async {
+    return SetABLoopPointsResponse();
   }
 
   @override

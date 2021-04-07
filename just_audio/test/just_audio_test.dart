@@ -1,3 +1,4 @@
+/*
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -233,7 +234,9 @@ void runTests() {
 
   test('speed', () async {
     final player = AudioPlayer();
-    /*final duration =*/ await player.setUrl('https://foo.foo/foo.mp3');
+    */
+/*final duration =*//*
+ await player.setUrl('https://foo.foo/foo.mp3');
     final period1 = Duration(seconds: 2);
     final period2 = Duration(seconds: 2);
     final speed1 = 0.75;
@@ -253,7 +256,9 @@ void runTests() {
 
   test('positionStream', () async {
     final player = AudioPlayer();
-    /*final duration =*/ await player.setUrl('https://foo.foo/foo.mp3');
+    */
+/*final duration =*//*
+ await player.setUrl('https://foo.foo/foo.mp3');
     final period = Duration(seconds: 3);
     final position1 = period;
     final position2 = position1 + period;
@@ -299,7 +304,9 @@ void runTests() {
   test('icyMetadata', () async {
     final player = AudioPlayer();
     expect(player.icyMetadata, equals(null));
-    /*final duration =*/ await player.setUrl('https://foo.foo/foo.mp3');
+    */
+/*final duration =*//*
+ await player.setUrl('https://foo.foo/foo.mp3');
     player.play();
     expect(
         player.icyMetadata!.headers!.genre, equals(icyMetadata.headers!.genre));
@@ -1272,3 +1279,4 @@ class MockWebServer {
 }
 
 class MyHttpOverrides extends HttpOverrides {}
+*/
