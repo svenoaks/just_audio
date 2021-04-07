@@ -95,6 +95,10 @@ abstract class AudioPlayerPlatform {
     throw UnimplementedError("setPitch() has not been implemented.");
   }
 
+  Future<SetABLoopPointsResponse> setABLoopPoints(SetABLoopPointsRequest request) {
+    throw UnimplementedError("setABLoopPoints() has not been implemented.");
+  }
+
   /// Sets the loop mode.
   Future<SetLoopModeResponse> setLoopMode(SetLoopModeRequest request) {
     throw UnimplementedError("setLoopMode() has not been implemented.");
@@ -407,6 +411,19 @@ class SetPitchRequest {
   };
 }
 
+class SetABLoopPointsRequest {
+  final Duration? pointA;
+  final Duration? pointB;
+
+  SetABLoopPointsRequest({required this.pointA, required this.pointB});
+
+  Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
+    'pointA': pointA?.inMicroseconds,
+    'pointB': pointB?.inMicroseconds,
+  };
+
+}
+
 /// Information returned by the platform implementation after setting the
 /// speed.
 class SetSpeedResponse {
@@ -416,6 +433,10 @@ class SetSpeedResponse {
 class SetPitchResponse {
   static SetPitchResponse fromMap(Map<dynamic, dynamic> map) =>
       SetPitchResponse();
+}
+class SetABLoopPointsResponse {
+  static SetABLoopPointsResponse fromMap(Map<dynamic, dynamic> map) =>
+      SetABLoopPointsResponse();
 }
 
 /// Information communicated to the platform implementation when setting the

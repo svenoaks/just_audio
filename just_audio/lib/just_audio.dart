@@ -78,6 +78,7 @@ class AudioPlayer {
   final _volumeSubject = BehaviorSubject.seeded(1.0);
   final _speedSubject = BehaviorSubject.seeded(1.0);
   final _pitchSubject = BehaviorSubject.seeded(0.0);
+  final _abLoopPointsSubject = BehaviorSubject.seeded(ABLoopPoints(null, null));
   final _bufferedPositionSubject = BehaviorSubject<Duration>();
   final _icyMetadataSubject = BehaviorSubject<IcyMetadata?>();
   final _playerStateSubject = BehaviorSubject<PlayerState>();
@@ -294,9 +295,14 @@ class AudioPlayer {
 
   double get pitch => _pitchSubject.value!;
 
+  ABLoopPoints get abLoopPoints => _abLoopPointsSubject.value!;
+
+  //ABLoopPoints get ABLoopPoints => _ABLoopPointsSubject.value!;
+
   /// A stream of current speed values.
   Stream<double> get speedStream => _speedSubject.stream;
   Stream<double> get pitchStream => _pitchSubject.stream;
+  Stream<ABLoopPoints> get abLoopPointsStream => _abLoopPointsSubject.stream;
 
   /// The position up to which buffered audio is available.
   Duration get bufferedPosition =>
@@ -841,6 +847,10 @@ class AudioPlayer {
     await (await _platform).setVolume(SetVolumeRequest(volume: volume));
   }
 
+  Future<void> setLoopPoints(final ABLoopPoints loopPoints) async {
+
+  }
+
   /// Sets the playback speed of this player, where 1.0 is normal speed. Note
   /// that values in excess of 1.0 may result in stalls if the playback speed is
   /// faster than the player is able to downloaded the audio.
@@ -864,6 +874,11 @@ class AudioPlayer {
     _playbackEventSubject.add(_playbackEvent);
     _pitchSubject.add(pitch);
     await (await _platform).setPitch(SetPitchRequest(pitch: pitch));
+  }
+
+  Future<void> setABLoopPoints(final ABLoopPoints points) async {
+    _abLoopPointsSubject.add(points);
+    await (await _platform).setABLoopPoints(SetABLoopPointsRequest(pointA: points.A, pointB: points.B));
   }
 
   /// Sets the [LoopMode]. Looping will be gapless on Android, iOS and macOS. On
@@ -2542,6 +2557,13 @@ class DefaultShuffleOrder extends ShuffleOrder {
   void clear() {
     indices.clear();
   }
+}
+
+class ABLoopPoints {
+  final Duration? A;
+  final Duration? B;
+
+  ABLoopPoints(this.A, this.B);
 }
 
 /// An enumeration of modes that can be passed to [AudioPlayer.setLoopMode].

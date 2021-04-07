@@ -75,6 +75,12 @@ class MethodChannelAudioPlayer extends AudioPlayerPlatform {
   }
 
   @override
+  Future<SetABLoopPointsResponse> setABLoopPoints(SetABLoopPointsRequest request) async {
+    return SetABLoopPointsResponse.fromMap((await _channel
+        .invokeMethod<Map<dynamic, dynamic>>('setABLoopPoints', request.toMap()))!);
+  }
+
+  @override
   Future<SetLoopModeResponse> setLoopMode(SetLoopModeRequest request) async {
     return SetLoopModeResponse.fromMap((await _channel
         .invokeMethod<Map<dynamic, dynamic>>('setLoopMode', request.toMap()))!);
