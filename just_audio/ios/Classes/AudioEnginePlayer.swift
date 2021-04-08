@@ -8,6 +8,7 @@
 import Foundation
 import AVFoundation
 import MediaPlayer
+import Flutter
 
 extension AVAudioFile {
     
@@ -61,6 +62,18 @@ class AudioEnginePlayer {
     var seekPosition: Int64 = 0
     var seeking = false
     
+    private var _abLoopPoints: AudioPlayer.ABLoopPoints = .init(nil, nil)
+    
+    var abLoopPoints: AudioPlayer.ABLoopPoints {
+        get {
+            return _abLoopPoints;
+        }
+        set(value) {
+            //TODO
+            _abLoopPoints = value;
+        }
+    }
+    
     weak var listener: AudioEngineListener?
     
     init() {
@@ -93,13 +106,23 @@ class AudioEnginePlayer {
     deinit {
         engine.stop()
     }
+
     
-    func setSpeed(_ speed: Double) {
-        tempoControl.rate = Float(speed)
+    var speed: Double {
+        get {
+            return Double(tempoControl.rate)
+        }
+        set(value) {
+            tempoControl.rate = Float(value)
+        }
     }
-    
-    func setPitch(_ pitch: Double) {
-        tempoControl.pitch = Float(pitch)
+    var pitch: Double {
+        get {
+            return Double(tempoControl.pitch)
+        }
+        set(value) {
+            tempoControl.pitch = Float(value)
+        }
     }
     
     
@@ -155,7 +178,7 @@ class AudioEnginePlayer {
     }
     
     
-    func load(_ urlString: String, _ initialPosition: CMTime, registrar: FlutterPluginRegistrar? = nil) throws -> Int64 {
+    func load (_ urlString: String, _ initialPosition: CMTime, registrar: FlutterPluginRegistrar? = nil) throws -> Int64 {
         try engine.start()
         
         if (test) {
@@ -176,7 +199,7 @@ class AudioEnginePlayer {
     
     
     
-    func load (url: URL, initialPosition: CMTime) throws -> Int64 {
+    private func load (url: URL, initialPosition: CMTime) throws -> Int64 {
         audioFile = try AVAudioFile(forReading: url)
         stopAndScheduleSegment(startTimeUs: .zero)
         return duration

@@ -37,6 +37,16 @@ class AudioPlayer: NSObject, FlutterStreamHandler, AudioEngineListener {
         case loopStop
     }
     
+    class ABLoopPoints {
+        let pointA: CMTime?;
+        let pointB: CMTime?;
+        
+        init(_ pointA: CMTime?, _ pointB: CMTime?) {
+            self.pointA = pointA;
+            self.pointB = pointB;
+        }
+    }
+    
     private weak var registrar: FlutterPluginRegistrar?
     private let methodChannel: FlutterMethodChannel
     private let eventChannel: FlutterEventChannel
@@ -107,13 +117,19 @@ class AudioPlayer: NSObject, FlutterStreamHandler, AudioEngineListener {
                 result([:])
             case "setSpeed":
                 let speed = request["speed"] as! Double
-                player.setSpeed(speed)
+                player.speed = speed
                 result([:])
             case "setPitch":
                 let pitch = request["pitch"] as! Double
-                player.setPitch(pitch)
+                player.pitch = pitch
                 result([:])
             case "setABLoopPoints":
+                let pointA = request["pointA"] as? Int64
+                let pointB = request["pointB"] as? Int64
+                player.abLoopPoints = ABLoopPoints(
+                    pointA == nil ? nil : CMTimeMake(value: pointA!, timescale: 1000000),
+                    pointB == nil ? nil : CMTimeMake(value: pointB!, timescale: 1000000)
+                );
                 result([:])
             case "setLoopMode":
                 let loopMode: LoopMode = LoopMode(rawValue: request["loopMode"] as! Int)!
