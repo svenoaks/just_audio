@@ -20,6 +20,11 @@ class AudioPlayer: NSObject, FlutterStreamHandler, AudioEngineListener {
         broadcastPlaybackEvent()
     }
     
+    func onUpdatePosition() {
+        updatePosition()
+        broadcastPlaybackEvent()
+    }
+    
     
     enum ProcessingState : Int {
         case none

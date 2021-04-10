@@ -34,6 +34,7 @@ extension AVAudioPlayerNode {
 
 protocol AudioEngineListener: class {
     func onTrackComplete()
+    func onUpdatePosition()
 }
 
 class AudioEnginePlayer {
@@ -59,20 +60,30 @@ class AudioEnginePlayer {
         audioPlayer.isPlaying
     }
     
-    var seekPosition: Int64 = 0
+    var seekPosition: Int64 = 0 //ms
     var seeking = false
     
     private var _abLoopPoints: AudioPlayer.ABLoopPoints = .init(nil, nil)
+    
+    var isLooping: Bool {
+        return abLoopPoints.pointA != nil && abLoopPoints.pointB != nil
+    }
     
     var abLoopPoints: AudioPlayer.ABLoopPoints {
         get {
             return _abLoopPoints;
         }
         set(value) {
-            //TODO
+            let wasLooping = isLooping
             _abLoopPoints = value;
+            if !wasLooping && isLooping {
+                startLoop()
+            }
         }
     }
+    
+    var lastLoopStartSamples: UInt32?
+    var lastLoopLengthSamples: UInt32?
     
     weak var listener: AudioEngineListener?
     
@@ -106,7 +117,7 @@ class AudioEnginePlayer {
     deinit {
         engine.stop()
     }
-
+    
     
     var speed: Double {
         get {
@@ -130,24 +141,47 @@ class AudioEnginePlayer {
         guard let file = audioFile else { return }
         let wasPlaying = audioPlayer.isPlaying
         audioPlayer.stop()
-        let startInSongSeconds = startTimeUs.seconds
-        let startSample = UInt32(floor(startInSongSeconds * file.processingFormat.sampleRate))
-        let lengthSamples: UInt32 = UInt32(file.length) - startSample
+    
+        let (startSample, lengthSamples) = startAndLengthSamples(file: file, startTimeUs: startTimeUs, endSamples: UInt32(file.length))
         
         if lengthSamples > 0 {
-            scheduleSegment(startSample: startSample, lengthSamples: lengthSamples, completionType: .dataConsumed)
+            scheduleSegment(startSample: startSample, lengthSamples: lengthSamples, completionType: .dataRendered, loop: false)
         } else {
-            completionHandler(type: .dataConsumed)
+            regularCompletionHandler(type: .dataRendered)
         }
         
         seekPosition = startTimeUs.value / 1000
         if (wasPlaying) {
             audioPlayer.play()
         }
-        
     }
     
-    func completionHandler(type: AVAudioPlayerNodeCompletionCallbackType) {
+    func startLoop() {
+        guard let file = audioFile, let pointA = abLoopPoints.pointA, let pointB = abLoopPoints.pointB else { return }
+        seeking = true
+        let endSamples = timeToSamples(file: file, timeUs: pointB)
+        (lastLoopStartSamples, lastLoopLengthSamples) = startAndLengthSamples(file: file, startTimeUs: pointA, endSamples: endSamples)
+        let wasPlaying = audioPlayer.isPlaying
+        audioPlayer.stop()
+        scheduleSegment(startSample: lastLoopStartSamples!, lengthSamples: lastLoopLengthSamples!, completionType: .dataRendered, loop: true)
+        seekPosition = pointA.value / 1000
+        if (wasPlaying) {
+            audioPlayer.play()
+        }
+    }
+    
+    func timeToSamples(file: AVAudioFile, timeUs: CMTime) -> UInt32 {
+        let startInSongSeconds = timeUs.seconds
+        return UInt32(floor(startInSongSeconds * file.processingFormat.sampleRate))
+    }
+    
+    func startAndLengthSamples(file: AVAudioFile, startTimeUs: CMTime, endSamples: UInt32) -> (startSample: UInt32, lengthSamples: UInt32) {
+        let startSample = timeToSamples(file: file, timeUs: startTimeUs)
+        let lengthSamples: UInt32 = endSamples - startSample
+        return (startSample, lengthSamples)
+    }
+    
+    func regularCompletionHandler(type: AVAudioPlayerNodeCompletionCallbackType) {
         DispatchQueue.main.async { [weak self] in
             guard let sel = self else { return; }
             if (!(sel.seeking)) {
@@ -167,13 +201,33 @@ class AudioEnginePlayer {
         }
     }
     
-    func scheduleSegment(startSample: UInt32, lengthSamples: UInt32, completionType: AVAudioPlayerNodeCompletionCallbackType) {
+    func loopCompletionHandler (type: AVAudioPlayerNodeCompletionCallbackType) {
+        DispatchQueue.main.async { [weak self] in
+            guard let sel = self, let startSamples = sel.lastLoopStartSamples, let lengthSamples = sel.lastLoopLengthSamples else { return }
+            if let _ = sel.abLoopPoints.pointA, let _ = sel.abLoopPoints.pointB {
+                let wasPlaying = sel.audioPlayer.isPlaying
+                //sel.audioPlayer.stop()
+                sel.scheduleSegment(startSample: startSamples, lengthSamples: lengthSamples, completionType: .dataRendered, loop: true)
+                if (wasPlaying) {
+                    //sel.audioPlayer.play()
+                }
+                sel.listener?.onUpdatePosition()
+            } else {
+                guard let file = sel.audioFile else { return }
+                let newStart: UInt32 = startSamples + lengthSamples
+                let newLength: UInt32 = UInt32(file.length) - newStart
+                sel.scheduleSegment(startSample: newStart, lengthSamples: newLength, completionType: .dataRendered, loop: false)
+            }
+        }
+    }
+    
+    func scheduleSegment(startSample: UInt32, lengthSamples: UInt32, completionType: AVAudioPlayerNodeCompletionCallbackType, loop: Bool) {
         guard let file = audioFile else { return }
         audioPlayer.scheduleSegment(file,
                                     startingFrame: AVAudioFramePosition(startSample),
                                     frameCount: AVAudioFrameCount(lengthSamples), at: nil,
                                     completionCallbackType: completionType,
-                                    completionHandler: completionHandler
+                                    completionHandler: loop ? loopCompletionHandler : regularCompletionHandler
         )
     }
     
