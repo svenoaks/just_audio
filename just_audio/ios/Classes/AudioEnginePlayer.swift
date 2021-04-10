@@ -24,8 +24,7 @@ extension AVAudioPlayerNode {
     var currentPosition: Int64 {
         if let nodeTime = lastRenderTime, let playerTime = playerTime(forNodeTime: nodeTime) {
             let pos = Int64(((Double(playerTime.sampleTime) / playerTime.sampleRate)) * 1000)
-            NSLog("pos: \(pos)")
-            return pos > 0 ? pos : 0
+            return pos
         }
         NSLog("returning 0")
         return 0
@@ -84,6 +83,8 @@ class AudioEnginePlayer {
     
     var lastLoopStartSamples: UInt32?
     var lastLoopLengthSamples: UInt32?
+    
+    var loopSamplesCompleted: UInt32 = 0
     
     weak var listener: AudioEngineListener?
     
@@ -205,12 +206,7 @@ class AudioEnginePlayer {
         DispatchQueue.main.async { [weak self] in
             guard let sel = self, let startSamples = sel.lastLoopStartSamples, let lengthSamples = sel.lastLoopLengthSamples else { return }
             if let _ = sel.abLoopPoints.pointA, let _ = sel.abLoopPoints.pointB {
-                let wasPlaying = sel.audioPlayer.isPlaying
-                //sel.audioPlayer.stop()
                 sel.scheduleSegment(startSample: startSamples, lengthSamples: lengthSamples, completionType: .dataRendered, loop: true)
-                if (wasPlaying) {
-                    //sel.audioPlayer.play()
-                }
                 sel.listener?.onUpdatePosition()
             } else {
                 guard let file = sel.audioFile else { return }
