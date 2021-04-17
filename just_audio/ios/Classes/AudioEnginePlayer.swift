@@ -22,14 +22,15 @@ extension AVAudioFile {
 extension AVAudioPlayerNode {
     var currentPosition: Int64 {
         if let nodeTime = lastRenderTime, let playerTime = playerTime(forNodeTime: nodeTime) {
-            return samplesToTimeMs(samples: Double(playerTime.sampleTime), sampleRate: playerTime.sampleRate)
+            let pos = samplesToTimeMs(samples: Double(playerTime.sampleTime), sampleRate: playerTime.sampleRate)
+            return pos < 0 ? 0 : pos
         }
         return 0
     }
 }
 
 func samplesToTimeMs(samples: Double, sampleRate: Double) -> Int64 {
-    return Int64(samples / sampleRate) * 1000
+    return Int64(samples / sampleRate * 1000.0)
 }
 
 protocol AudioEngineListener: class {
@@ -53,9 +54,9 @@ class AudioEnginePlayer {
     }
     
     var currentPosition: Int64 {
-        guard let file = audioFile else { return 0; }
-        print(audioPlayer.outputPresentationLatency)
-        return audioPlayer.currentPosition + seekPosition - samplesToTimeMs(samples: Double(accumulatedLoopSamples), sampleRate: file.processingFormat.sampleRate)
+        guard audioFile != nil else { return 0; }
+        let pos = audioPlayer.currentPosition + seekPosition - accumulatedLoopTime
+        return pos < 0 ? 0 : pos
     }
     
     var isPlaying: Bool {
@@ -87,7 +88,7 @@ class AudioEnginePlayer {
     var lastLoopStartSamples: UInt32?
     var lastLoopLengthSamples: UInt32?
     
-    var accumulatedLoopSamples: UInt32 = 0
+    var accumulatedLoopTime: Int64 = 0
     
     weak var listener: AudioEngineListener?
     
@@ -157,7 +158,7 @@ class AudioEnginePlayer {
         }
         
         seekPosition = startTimeUs.value / 1000
-        accumulatedLoopSamples = 0
+        accumulatedLoopTime = 0
         if (wasPlaying) {
             audioPlayer.play()
         }
@@ -174,7 +175,7 @@ class AudioEnginePlayer {
         audioPlayer.stop()
         scheduleSegment(startSample: startSamples, lengthSamples: lengthSamples, completionType: .dataRendered, loop: true)
         seekPosition = pointA.value / 1000 + samplesToTimeMs(samples: Double(offsetSamples), sampleRate: file.processingFormat.sampleRate)
-        accumulatedLoopSamples = 0
+        accumulatedLoopTime = 0
         if (wasPlaying) {
             audioPlayer.play()
         }
@@ -216,9 +217,9 @@ class AudioEnginePlayer {
         DispatchQueue.main.async { [weak self] in
             guard let sel = self, let startSamples = sel.lastLoopStartSamples, let lengthSamples = sel.lastLoopLengthSamples else { return }
             if (!(sel.seeking)) {
-                if let _ = sel.abLoopPoints.pointA, let _ = sel.abLoopPoints.pointB {
+                if let pointA = sel.abLoopPoints.pointA, let _ = sel.abLoopPoints.pointB {
                     sel.scheduleSegment(startSample: startSamples, lengthSamples: lengthSamples, completionType: .dataRendered, loop: true)
-                    sel.accumulatedLoopSamples += lengthSamples
+                    sel.accumulatedLoopTime = sel.audioPlayer.currentPosition + sel.seekPosition - pointA.value / 1000
                     sel.listener?.onUpdatePosition()
                 } else {
                     guard let file = sel.audioFile else { return }

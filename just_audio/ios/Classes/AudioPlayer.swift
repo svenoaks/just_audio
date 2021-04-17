@@ -23,6 +23,7 @@ class AudioPlayer: NSObject, FlutterStreamHandler, AudioEngineListener {
     func onUpdatePosition() {
         updatePosition()
         broadcastPlaybackEvent()
+        NSLog(updatePos.description)
     }
     
     
