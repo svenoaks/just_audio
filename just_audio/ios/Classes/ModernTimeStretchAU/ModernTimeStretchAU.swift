@@ -10,7 +10,7 @@ import AudioToolbox
 import AVFoundation
 import CoreAudioKit
 
-
+/*
 public class ModernTimeStretchAU: AUAudioUnit {
     lazy private var inputBusArray: AUAudioUnitBusArray = {
         AUAudioUnitBusArray(audioUnit: self,
@@ -38,3 +38,4 @@ public class ModernTimeStretchAU: AUAudioUnit {
     
 
 }
+*/
