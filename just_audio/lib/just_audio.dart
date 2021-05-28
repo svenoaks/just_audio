@@ -877,6 +877,7 @@ class AudioPlayer {
   }
 
   Future<void> setABLoopPoints(final ABLoopPoints points) async {
+    if (_disposed) return;
     _abLoopPointsSubject.add(points);
     await (await _platform).setABLoopPoints(SetABLoopPointsRequest(pointA: points.A, pointB: points.B));
   }

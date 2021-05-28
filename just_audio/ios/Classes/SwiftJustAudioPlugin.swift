@@ -46,10 +46,10 @@ public class SwiftJustAudioPlugin: NSObject, FlutterPlugin {
     }
     
     deinit {
-        /*players.forEach { (id, player) in
+        players.forEach { (id, player) in
             player.dispose()
         }
-        players.removeAll()*/
+        players.removeAll()
     }
     
 }
